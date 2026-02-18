@@ -1,0 +1,21 @@
+{
+  "name": "cs_skins",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JChorao/CS_Skins.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/JChorao/CS_Skins/issues"
+  },
+  "homepage": "https://github.com/JChorao/CS_Skins#readme"
+}

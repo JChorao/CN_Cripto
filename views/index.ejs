@@ -1,0 +1,20 @@
+<canvas id="priceChart"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const dataFromDB = <%- JSON.stringify(priceData) %>;
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: dataFromDB.map(d => new Date(d.timestamp).toLocaleDateString()),
+            datasets: [{
+                label: 'Preço em EUR',
+                data: dataFromDB.map(d => d.price),
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        }
+    });
+</script>
