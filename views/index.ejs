@@ -1,20 +1,92 @@
-<canvas id="priceChart"></canvas>
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Crypto Monitor Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg: #0b0e11; --card: #181a20; --border: #2b3139; }
+        body { background-color: var(--bg); color: #eaecef; font-family: 'Inter', sans-serif; }
+        .market-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+        .table { --bs-table-bg: transparent; --bs-table-color: #eaecef; margin-bottom: 0; }
+        .table td { padding: 16px; border-bottom: 1px solid var(--border); }
+        .trend-up { color: #0ecb81; }
+        .trend-down { color: #f6465d; }
+        .sparkline { width: 120px; height: 50px; }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold">Mercado <span class="text-warning">Live</span></h2>
+            <small class="text-muted">Atualização automática a cada 30s</small>
+        </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const ctx = document.getElementById('priceChart').getContext('2d');
-    const dataFromDB = <%- JSON.stringify(priceData) %>;
+        <div class="market-card shadow">
+            <table class="table align-middle">
+                <thead>
+                    <tr class="text-muted small">
+                        <th class="ps-4">NOME</th>
+                        <th>PREÇO (EUR)</th>
+                        <th>TENDÊNCIA</th>
+                        <th class="text-end pe-4">GRÁFICO (20s+)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% Object.keys(coinData).forEach(coin => { 
+                        const history = coinData[coin];
+                        const cur = history[0] ? history[0].price : 0;
+                        const prev = history[1] ? history[1].price : cur;
+                        const isUp = cur >= prev;
+                    %>
+                    <tr>
+                        <td class="ps-4 fw-bold text-uppercase"><%= coin %></td>
+                        <td class="fw-bold fs-5"><%= cur.toLocaleString() %>€</td>
+                        <td class="<%= isUp ? 'trend-up' : 'trend-down' %> fs-4">
+                            <%= isUp ? '▲' : '▼' %>
+                        </td>
+                        <td class="text-end pe-4">
+                            <div class="sparkline ms-auto">
+                                <canvas id="chart-<%= coin %>"></canvas>
+                            </div>
+                        </td>
+                    </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: dataFromDB.map(d => new Date(d.timestamp).toLocaleDateString()),
-            datasets: [{
-                label: 'Preço em EUR',
-                data: dataFromDB.map(d => d.price),
-                borderColor: 'rgb(75, 192, 192)',
-                tension: 0.1
-            }]
-        }
-    });
-</script>
+    <script>
+        const coinData = <%- JSON.stringify(coinData) %>;
+        Object.keys(coinData).forEach(coin => {
+            const ctx = document.getElementById(`chart-${coin}`).getContext('2d');
+            const prices = coinData[coin].map(d => d.price).reverse();
+            const color = prices[prices.length-1] >= prices[0] ? '#0ecb81' : '#f6465d';
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: prices.map((_, i) => i),
+                    datasets: [{
+                        data: prices,
+                        borderColor: color,
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        tension: 0.4,
+                        fill: true,
+                        backgroundColor: color + '1A' // Transparência
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: false } }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
