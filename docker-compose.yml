@@ -5,6 +5,9 @@ services:
       - "3000:3000"
     environment:
       - MONGO_URL=mongodb://mongo:27017/CryptoCloud
+    volumes:
+      - .:/app                # Sincroniza seu código (server.js, etc)
+      - /app/node_modules     # Volume anônimo: protege os módulos internos do Docker
     depends_on:
       - mongo
 
