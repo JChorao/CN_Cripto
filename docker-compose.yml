@@ -1,22 +1,19 @@
+version: '3.8'
 services:
   app:
+    container_name: cn_cripto
     build: .
     ports:
       - "3000:3000"
     environment:
-      - MONGO_URL=mongodb://mongo:27017/CryptoCloud
-    volumes:
-      - .:/app                # Sincroniza seu código (server.js, etc)
-      - /app/node_modules     # Volume anônimo: protege os módulos internos do Docker
+      - MONGO_URL=mongodb://mongo:27017/crypto_db
     depends_on:
       - mongo
-
   mongo:
     image: mongo:latest
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-
 volumes:
   mongo_data:

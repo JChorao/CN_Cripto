@@ -2,52 +2,68 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Crypto Monitor Pro</title>
+    <title>CN Cripto - Real Time</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        :root { --bg: #0b0e11; --card: #181a20; --border: #2b3139; }
-        body { background-color: var(--bg); color: #eaecef; font-family: 'Inter', sans-serif; }
-        .market-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
-        .table { --bs-table-bg: transparent; --bs-table-color: #eaecef; margin-bottom: 0; }
-        .table td { padding: 16px; border-bottom: 1px solid var(--border); }
-        .trend-up { color: #0ecb81; }
-        .trend-down { color: #f6465d; }
-        .sparkline { width: 120px; height: 50px; }
+        body { background-color: #000; color: #fff; font-family: sans-serif; }
+        .table { background-color: #000 !important; color: #fff !important; border-color: #333; }
+        .table td, .table th { border-bottom: 1px solid #333; padding: 20px; vertical-align: middle; background: transparent !important; color: white !important; }
+        .clickable-row:hover { background-color: #111 !important; cursor: pointer; }
+        .trend-up { color: #0ecb81 !important; }
+        .trend-down { color: #f6465d !important; }
+        .trend-equal { color: #fff !important; }
+        .form-control { background: #111; border: 1px solid #444; color: white; }
+        .chart-container { height: 250px; width: 100%; }
+        .profit-box { background: #0a0a0a; border: 1px solid #ffc107; padding: 15px; border-radius: 8px; }
     </style>
 </head>
 <body class="p-4">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="fw-bold">CN <span class="text-warning">Crypto</span></h2>
-        </div>
-
-        <div class="market-card shadow">
-            <table class="table align-middle">
+        <h1 class="fw-bold mb-4">CN <span class="text-warning">CRIPTO</span></h1>
+        
+        <div class="table-responsive">
+            <table class="table">
                 <thead>
-                    <tr class="text-muted small">
-                        <th class="ps-4">NOME</th>
+                    <tr>
+                        <th>MOEDA</th>
                         <th>PREÇO (EUR)</th>
-                        <th>TENDÊNCIA</th>
-                        <th class="text-end pe-4">GRÁFICO (20s+)</th>
+                        <th class="text-center">TENDÊNCIA</th>
+                        <th class="text-end">AÇÃO</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% Object.keys(coinData).forEach(coin => { 
-                        const history = coinData[coin];
-                        const cur = history[0] ? history[0].price : 0;
-                        const prev = history[1] ? history[1].price : cur;
-                        const isUp = cur >= prev;
+                        const cur = coinData[coin][0]?.price || 0;
                     %>
+                    <tr class="clickable-row" data-bs-toggle="collapse" data-bs-target="#details-<%= coin %>" id="row-<%= coin %>">
+                        <td class="text-uppercase fw-bold"><%= coin %></td>
+                        <td class="price-val fw-bold fs-5"><%= cur.toLocaleString() %>€</td>
+                        <td class="trend-val text-center fs-4">-</td>
+                        <td class="text-end"><button class="btn btn-sm btn-outline-warning">Expandir</button></td>
+                    </tr>
                     <tr>
-                        <td class="ps-4 fw-bold text-uppercase"><%= coin %></td>
-                        <td class="fw-bold fs-5"><%= cur.toLocaleString() %>€</td>
-                        <td class="<%= isUp ? 'trend-up' : 'trend-down' %> fs-4">
-                            <%= isUp ? '▲' : '▼' %>
-                        </td>
-                        <td class="text-end pe-4">
-                            <div class="sparkline ms-auto">
-                                <canvas id="chart-<%= coin %>"></canvas>
+                        <td colspan="4" class="p-0 border-0">
+                            <div id="details-<%= coin %>" class="collapse" data-bs-parent="tbody">
+                                <div class="p-4" style="background: #050505;">
+                                    <div class="row">
+                                        <div class="col-md-4 border-end border-secondary">
+                                            <h6 class="text-warning mb-3">CALCULADORA DE LUCRO</h6>
+                                            <input type="number" class="form-control qty-in mb-2" data-coin="<%= coin %>" placeholder="Quantidade">
+                                            <input type="number" class="form-control buy-in mb-3" data-coin="<%= coin %>" placeholder="Preço de Compra (€)">
+                                            <div class="profit-box">
+                                                <small class="text-muted" style="color:white">Ganho/Perda Est.:</small>
+                                                <div id="profit-<%= coin %>" class="fw-bold fs-4">0.00€</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <div class="chart-container">
+                                                <canvas id="chart-<%= coin %>"></canvas>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -57,34 +73,88 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        const coinData = <%- JSON.stringify(coinData) %>;
-        Object.keys(coinData).forEach(coin => {
-            const ctx = document.getElementById(`chart-${coin}`).getContext('2d');
-            const prices = coinData[coin].map(d => d.price).reverse();
-            const color = prices[prices.length-1] >= prices[0] ? '#0ecb81' : '#f6465d';
+        const socket = io();
+        const charts = {};
+        const coinHistories = <%- JSON.stringify(coinData) %>;
 
-            new Chart(ctx, {
+        // Iniciar Gráficos
+        Object.keys(coinHistories).forEach(coin => {
+            const ctx = document.getElementById(`chart-${coin}`).getContext('2d');
+            const data = [...coinHistories[coin]].reverse();
+            charts[coin] = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: prices.map((_, i) => i),
+                    labels: data.map(d => new Date(d.timestamp).toLocaleTimeString()),
                     datasets: [{
-                        data: prices,
-                        borderColor: color,
+                        data: data.map(d => d.price),
+                        borderColor: '#ffc107',
                         borderWidth: 2,
                         pointRadius: 0,
-                        tension: 0.4,
+                        tension: 0.3,
                         fill: true,
-                        backgroundColor: color + '1A' // Transparência
+                        backgroundColor: 'rgba(255,193,7,0.05)'
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
-                    scales: { x: { display: false }, y: { display: false } }
+                    scales: { 
+                        x: { ticks: { color: '#555' }, grid: { display: false } },
+                        y: { position: 'right', ticks: { color: '#555' }, grid: { color: '#111' } }
+                    }
                 }
             });
+        });
+
+        // Atualização em Tempo Real
+        socket.on('priceUpdate', (newPrices) => {
+            Object.keys(newPrices).forEach(coin => {
+                const price = newPrices[coin];
+                const row = document.getElementById(`row-${coin}`);
+                const priceCell = row.querySelector('.price-val');
+                const oldPrice = parseFloat(priceCell.innerText.replace('€', '').replace(',', ''));
+                
+                // Preço
+                priceCell.innerText = price.toLocaleString() + '€';
+                
+                // Seta
+                const trendCell = row.querySelector('.trend-val');
+                if (price > oldPrice) { trendCell.innerText = '▲'; trendCell.className = 'trend-val text-center fs-4 trend-up'; }
+                else if (price < oldPrice) { trendCell.innerText = '▼'; trendCell.className = 'trend-val text-center fs-4 trend-down'; }
+
+                // Gráfico
+                const chart = charts[coin];
+                chart.data.labels.push(new Date().toLocaleTimeString());
+                chart.data.datasets[0].data.push(price);
+                if (chart.data.labels.length > 50) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                chart.update();
+
+                // Recalcular Lucro se houver dados nos inputs
+                updateProfit(coin, price);
+            });
+        });
+
+        function updateProfit(coin, currentPrice) {
+            const qty = parseFloat(document.querySelector(`.qty-in[data-coin="${coin}"]`).value) || 0;
+            const buy = parseFloat(document.querySelector(`.buy-in[data-coin="${coin}"]`).value) || 0;
+            const display = document.getElementById(`profit-${coin}`);
+            
+            if (qty > 0 && buy > 0) {
+                const total = (currentPrice - buy) * qty;
+                display.innerText = total.toLocaleString(undefined, {minimumFractionDigits: 2}) + '€';
+                display.className = total >= 0 ? 'fw-bold fs-4 trend-up' : 'fw-bold fs-4 trend-down';
+            }
+        }
+
+        document.addEventListener('input', (e) => {
+            if (e.target.matches('.qty-in, .buy-in')) {
+                const coin = e.target.dataset.coin;
+                const currentPrice = parseFloat(document.querySelector(`#row-${coin} .price-val`).innerText.replace('€', '').replace(',', ''));
+                updateProfit(coin, currentPrice);
+            }
         });
     </script>
 </body>

@@ -1,5 +1,5 @@
 {
-  "name": "cs_skins",
+  "name": "cn_crypto",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -9,13 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JChorao/CS_Skins.git"
+    "url": "git+http://github.com/JChorao/CN_Cripto.git"
   },
   "dependencies": {
     "axios": "^1.6.0",
     "ejs": "^3.1.10",
     "express": "^4.22.1",
-    "mongoose": "^8.0.0"
+    "mongoose": "^8.0.0",
+    "socket.io": "^4.7.2"
   },
   "type": "commonjs"
 }
