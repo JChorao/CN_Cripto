@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '18' # A versão que usas no package.json
+          node-version: '24' # A versão que usas no package.json
 
       - name: Install dependencies and build
         run: |
