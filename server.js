@@ -1,5 +1,5 @@
 const express = require('express');
-const mongoose = require('mongoose');
+// const mongoose = require('mongoose'); // TEMPORARIAMENTE COMENTADO
 const axios = require('axios');
 const path = require('path');
 const http = require('http');
@@ -9,14 +9,17 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-mongoose.connect(process.env.MONGO_URL || 'mongodb://mongo:27017/crypto_db');
+// LIGAÇÃO À BD TEMPORARIAMENTE COMENTADA PARA TESTE
+// mongoose.connect(process.env.MONGO_URL || 'mongodb://mongo:27017/crypto_db');
 
+/* COMENTADO PARA NÃO DAR ERRO
 const PriceSchema = new mongoose.Schema({
     cryptoId: String,
     price: Number,
     timestamp: { type: Date, default: Date.now }
 });
 const Price = mongoose.model('Price', PriceSchema);
+*/
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -32,7 +35,7 @@ async function updateMarketPrices() {
         for (const coin of COINS) {
             if (response.data[coin]) {
                 const newPrice = response.data[coin].eur;
-                await Price.create({ cryptoId: coin, price: newPrice });
+                // await Price.create({ cryptoId: coin, price: newPrice }); // NÃO GRAVA NA BD POR AGORA
                 updatedPrices[coin] = newPrice;
             }
         }
@@ -48,12 +51,16 @@ setInterval(updateMarketPrices, 30000); // Atualiza a cada 30 segundos
 app.get('/', async (req, res) => {
     const coinData = {};
     for (const coin of COINS) {
-        coinData[coin] = await Price.find({ cryptoId: coin }).sort({ timestamp: -1 }).limit(50);
+        // EM VEZ DE IR À BD, ENVIA UM ARRAY VAZIO PARA A PÁGINA NÃO CRASHAR
+        // coinData[coin] = await Price.find({ cryptoId: coin }).sort({ timestamp: -1 }).limit(50);
+        coinData[coin] = []; 
     }
     res.render('index', { coinData });
 });
 
-server.listen(3000, () => {
-    console.log('Servidor em tempo real: http://localhost:3000');
+// ALTERAÇÃO CRUCIAL PARA A AZURE: USAR O process.env.PORT
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`Servidor a correr na porta: ${PORT}`);
     updateMarketPrices();
 });
